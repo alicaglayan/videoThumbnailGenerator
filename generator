@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+
+"""CBG Thumbnail Generator
+
+Usage:
+  ./generator <video> <width> <height> <columns> <output> <video_preview>
+  ./generator (-h | --help)
+  ./generator --version
+
+Options:
+  -h --help         Show this screen.
+  --version         Show version.
+  <video>           Video file path.
+  <width>           Width of each generator.
+  <height>          Height of each generator.
+  <columns>         Total number of thumbnails per line.
+  <output>          Output.
+  <video_preview>   Preview video path.
+"""
+
+import glob
+import os
+import random
+import shutil
+import tempfile
+import math
+
+from docopt import docopt
+from PIL import Image
+from click import progressbar
+from moviepy.editor import VideoFileClip, ImageClip
+from moviepy.video.compositing.concatenate import concatenate_videoclips
+
+TMP_FRAMES_PATH = tempfile.mkdtemp()
+
+
+def get_output_prefix():
+    if not os.path.exists(TMP_FRAMES_PATH):
+        os.makedirs(TMP_FRAMES_PATH)
+
+    return TMP_FRAMES_PATH + "/" + ("%032x_" % random.getrandbits(128))
+
+
+class VideoThumbnailGenerator:
+    def __init__(self, args):
+        self.videoFileClip = VideoFileClip(args['<video>'])
+        self.interval = 10
+        self.size = (int(args['<width>']), int(args['<height>']))
+        self.output_prefix = get_output_prefix()
+        self.video_preview = args['<video_preview>']
+
+        self.generate_frames()
+
+        self.columns = int(args['<columns>'])
+        self.output = args['<output>']
+        self.generate_sprite_from_frames()
+
+    def generate_frames(self):
+        print("Extracting", self.interval, "frames")
+        frame_count = 0
+        with progressbar(range(0, int(self.videoFileClip.duration), self.interval)) as items:
+            for i in items:
+                self.extract_frame(i, frame_count)
+                frame_count += 1
+        print("Frames extracted.")
+
+    def extract_frame(self, moment, frame_count):
+        output = self.output_prefix + ("%05d.jpg" % frame_count)
+        self.videoFileClip.save_frame(output, t=int(moment))
+        self.resize_frame(output)
+
+    def resize_frame(self, filename):
+        image = Image.open(filename)
+        image = image.resize(self.size, Image.ANTIALIAS)
+        image.save(filename)
+
+    def generate_sprite_from_frames(self):
+        frames_map = sorted(glob.glob(self.output_prefix + "*.jpg"))
+
+        master_width = self.size[0] * self.columns
+        master_height = self.size[1] * int(math.ceil(float(len(frames_map)) / self.columns))
+        line, column = 0, 0
+
+        finalImage = Image.new(mode='RGB', size=(master_width, master_height), color=(0, 0, 0, 0))
+
+        for filename in frames_map:
+            with Image.open(filename) as image:
+
+                location_x = self.size[0] * column
+                location_y = self.size[1] * line
+
+                finalImage.paste(image, (location_x, location_y))
+
+                column += 1
+
+                if column == self.columns:
+                    line += 1
+                    column = 0
+
+        finalImage.save(self.output, quality=50, optimize=True, transparency=0)
+
+        if not self.video_preview:
+            shutil.rmtree(TMP_FRAMES_PATH, ignore_errors=True)
+        else:
+            self.generate_preview_video(frames_map)
+
+        print("Saved!")
+
+    def generate_preview_video(self, frames_map):
+        preview_thumbs = frames_map[0:25]
+        clips = [ImageClip(m).set_duration(5 / len(preview_thumbs))
+                 for m in preview_thumbs]
+        concat_clip = concatenate_videoclips(clips, method="compose")
+        concat_clip.write_videofile(self.video_preview, fps=24)
+
+        shutil.rmtree(TMP_FRAMES_PATH, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    arguments = docopt(__doc__, version='0.0.2')
+    VideoThumbnailGenerator(arguments)

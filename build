@@ -1,0 +1,5 @@
+#!/bin/sh
+UNAME_S=$(uname -s)
+
+sudo pip3 install -r requirements.txt
+chmod a+x generator
