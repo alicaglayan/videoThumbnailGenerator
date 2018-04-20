@@ -43,7 +43,7 @@ Options:
 
 ## Example
 ```shell
-$ ./generator showtv.mp4 163 88 10 thumbnails/43534.jpg previews/43534.mp4
+$ ./generator test.mp4 163 88 10 thumbnails/thumbs.jpg previews/video.mp4
 Extracting 10 frames
   [####################################]  100%
 Frames extracted.
