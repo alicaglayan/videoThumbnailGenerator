@@ -6,7 +6,7 @@ Generate thumbnail sprites from videos and create preview video from thumbnails
 1. Clone it:
 
 ```sh
-$ git clone git@gitlab.cbg:cbg/videoThumbnailGenerator.git
+$ git clone git@github.com:alicaglayan/videoThumbnailGenerator.git
 ```
 
 2. Then go to the project's folder:
